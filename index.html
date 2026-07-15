@@ -377,6 +377,7 @@ textarea.inp{resize:vertical;min-height:70px;line-height:1.5}
       <button data-p="equipe">Equipe &amp; Frentes</button>
     </nav>
     <div class="spacer"></div>
+    <button class="hbtn" id="btnSync" title="Sincronizar com a nuvem">⟳ Sincronizar</button>
     <button class="hbtn" id="btnExport">Exportar</button>
     <button class="hbtn" id="btnImport">Importar</button>
     <button class="hbtn primary" id="btnNew">+ Nova demanda</button>
@@ -1547,6 +1548,37 @@ $('#btnReset').onclick=async()=>{
   S=SEED(); await persist(); renderAll(); toast('Plano original restaurado');
 };
 
+/* ---------- SINCRONIZAR ---------- */
+$('#btnSync').onclick=async()=>{
+  const btn=$('#btnSync');
+  if(!window.FB){ toast('Firebase não configurado — dados só neste navegador'); return; }
+  btn.disabled=true; const old=btn.textContent; btn.textContent='⟳ Sincronizando...';
+  try{
+    // 1) puxa o que está na nuvem
+    const remote=await window.FB.load();
+    const localStr=JSON.stringify(S);
+    if(remote && JSON.stringify(remote)!==localStr){
+      // há divergência: pergunta quem vence
+      const usarNuvem=confirm(
+        'A nuvem tem uma versão diferente da que está aqui.\n\n'+
+        'OK = trazer a versão da NUVEM para este dispositivo\n'+
+        'Cancelar = enviar a versão DESTE dispositivo para a nuvem'
+      );
+      if(usarNuvem){ S=remote; mem=S; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} renderAll(); if(selNode)selectNode(selNode); }
+      else { await window.FB.save(S); }
+    } else {
+      // sem divergência: só garante que a nuvem tem o local
+      await window.FB.save(S);
+    }
+    btn.textContent='✓ Sincronizado';
+    setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1400);
+  }catch(e){
+    console.warn('sync falhou',e);
+    toast('Falha ao sincronizar — verifique a conexão');
+    btn.textContent=old; btn.disabled=false;
+  }
+};
+
 function closeModals(){$$('.overlay').forEach(o=>o.classList.remove('on')); if(pendingRemote){const r=pendingRemote;pendingRemote=null;applyRemote(r);}}
 $$('.overlay').forEach(o=>{o.onclick=e=>{if(e.target===o||e.target.closest('[data-close]'))closeModals();};});
 document.addEventListener('keydown',e=>{
@@ -1583,7 +1615,7 @@ function renderAll(){fillSelects();renderPainel();renderDemandas();renderTempo()
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  /// Import the functions you need from the SDKs you need
+  // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries

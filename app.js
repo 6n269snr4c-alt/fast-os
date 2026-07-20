@@ -126,6 +126,23 @@ function renderPainel(){
   const soon=D.filter(t=>t.status!=='concluido'&&!isLate(t)&&t.fim&&t.fim<=lim).sort((a,b)=>a.fim.localeCompare(b.fim));
   $('#soonList').innerHTML=soon.length?soon.map(t=>mini(t)).join(''):'<div class="empty">Nenhuma entrega nas próximas duas semanas.</div>';
   bindMini('#soonList');
+
+  // precisa de revisão
+  const rev=D.filter(t=>t.revisao).sort((a,b)=>(a.fim||'zzzz').localeCompare(b.fim||'zzzz'));
+  const rc=$('#revisaoCard');
+  if(rev.length){
+    rc.style.display='block';
+    $('#revisaoCount').textContent=`· ${rev.length} pendência${rev.length>1?'s':''}`;
+    $('#revisaoList').innerHTML=rev.map(t=>{
+      const semPrazo = !t.fim;
+      return `<div class="mini" data-id="${t.id}" style="background:#2a2408">
+        <span class="dot ${effStatus(t)}"></span>
+        <span class="t">${esc(t.titulo)}</span>
+        <span class="d" style="color:${semPrazo?'var(--amber)':'var(--mute)'}">${semPrazo?'sem prazo':fmtDate(t.fim)} · ${esc(t.resp)}</span>
+      </div>`;
+    }).join('');
+    bindMini('#revisaoList');
+  } else { rc.style.display='none'; }
 }
 const mini=(t,l)=>`<div class="mini" data-id="${t.id}"><span class="dot ${effStatus(t)}"></span><span class="t">${esc(t.titulo)}</span><span class="d ${l?'late':''}">${fmtDate(t.fim)}</span></div>`;
 function bindMini(s){$$(s+' .mini').forEach(e=>e.onclick=()=>openDemanda(e.dataset.id));}
@@ -133,10 +150,10 @@ function bindMini(s){$$(s+' .mini').forEach(e=>e.onclick=()=>openDemanda(e.datas
 /* ---------- DEMANDAS ---------- */
 let view='kanban';
 $$('#viewSeg button').forEach(b=>b.onclick=()=>{$$('#viewSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');view=b.dataset.v;renderDemandas();});
-['#fSearch','#fFrente','#fResp','#fPri','#fLate'].forEach(s=>$(s).oninput=renderDemandas);
+['#fSearch','#fFrente','#fResp','#fPri','#fLate','#fRev'].forEach(s=>$(s).oninput=renderDemandas);
 function filtered(){
-  const q=$('#fSearch').value.toLowerCase(),fr=$('#fFrente').value,rp=$('#fResp').value,pr=$('#fPri').value,lt=$('#fLate').checked;
-  return S.demandas.filter(t=>(!q||(t.titulo+' '+t.desc).toLowerCase().includes(q))&&(!fr||t.frente===fr)&&(!rp||t.resp===rp)&&(!pr||t.prioridade===pr)&&(!lt||isLate(t)));
+  const q=$('#fSearch').value.toLowerCase(),fr=$('#fFrente').value,rp=$('#fResp').value,pr=$('#fPri').value,lt=$('#fLate').checked,rv=$('#fRev').checked;
+  return S.demandas.filter(t=>(!q||(t.titulo+' '+t.desc).toLowerCase().includes(q))&&(!fr||t.frente===fr)&&(!rp||t.resp===rp)&&(!pr||t.prioridade===pr)&&(!lt||isLate(t))&&(!rv||t.revisao));
 }
 function renderDemandas(){
   const l=filtered();
@@ -151,6 +168,7 @@ function taskCard(t){
     <span class="tag date ${isLate(t)?'late':''}">${fmtDate(t.ini)} → ${fmtDate(t.fim)}</span>
     <span class="tag frente">${esc(frenteNome(t.frente))}</span>
     ${catTag(t)}
+    ${t.revisao?'<span class="tag rev">⚑ Revisão</span>':''}
     ${t.prioridade==='Alta'?'<span class="tag pri">Alta</span>':''}
     ${t.orcamento?`<span class="tag money">R$ ${t.orcamentoValor?(+t.orcamentoValor).toLocaleString('pt-BR'):'a definir'}</span>`:''}
     ${t.pai?'<span class="tag sub">desdobramento</span>':''}</div></div>`;
@@ -250,15 +268,25 @@ function renderTempo(){
   }
   head+='</div></div>';
 
-  // linhas agrupadas por frente
+  // linhas agrupadas por frente, com desdobramentos logo abaixo do pai
   let rows='';
   S.frentes.forEach(f=>{
-    const ts=L.filter(t=>t.frente===f.id).sort((a,b)=>a.ini.localeCompare(b.ini)||a.fim.localeCompare(b.fim));
-    if(!ts.length) return;
+    const all=L.filter(t=>t.frente===f.id);
+    if(!all.length) return;
+    // raízes ordenadas por data; cada filha entra imediatamente após a mãe
+    const byDate=(a,b)=>(a.ini||'z').localeCompare(b.ini||'z')||(a.fim||'z').localeCompare(b.fim||'z');
+    const roots=all.filter(t=>!t.pai||!all.some(x=>x.id===t.pai)).sort(byDate);
+    const ts=[];
+    roots.forEach(r=>{
+      ts.push(r);
+      all.filter(c=>c.pai===r.id).sort(byDate).forEach(c=>ts.push(c));
+    });
+    all.forEach(t=>{ if(!ts.includes(t)) ts.push(t); }); // segurança: nada fica de fora
     rows+=`<div class="gsec"><div class="glabel">${esc(f.nome)}</div>
       <div class="gtrack" style="width:${W}px"></div></div>`;
     ts.forEach(t=>{
       const st=effStatus(t);
+      const isChild=!!t.pai && all.some(x=>x.id===t.pai);
       const x=diffD(start,t.ini)*dayW;
       const w=Math.max(dayW,(diffD(t.ini,t.fim)+1)*dayW);
       const dias=diffD(t.ini,t.fim)+1;
@@ -280,15 +308,15 @@ function renderTempo(){
           dots+=`<div class="${dotc}" style="left:${cx}px" title="${verb}: ${dm(t.fim)}"></div>`;
         }
       }
-      rows+=`<div class="grow">
+      rows+=`<div class="grow ${isChild?'gchild':''} ${st==='concluido'?'gdone':''}">
         <div class="glabel" data-id="${t.id}">
           <span class="dot ${st}"></span>
-          <span class="gt">${t.pai?'↳ ':''}${esc(t.titulo)}</span>
-          <span class="sub2">${dias}d</span>
+          <span class="gt">${isChild?'<span class="gbranch">↳</span> ':''}${esc(t.titulo)}</span>
+          <span class="sub2">${st==='concluido'?'✓ ':''}${dias}d</span>
         </div>
         <div class="gtrack" style="width:${W}px;background:${trackBg}">
           ${nowLeft!==null?`<div class="gnow" style="left:${nowLeft}px"></div>`:''}
-          <div class="bar ${st}${catCls}" data-id="${t.id}" style="left:${x}px;width:${w}px" title="${esc(t.titulo)} — ${dm(t.ini)} a ${dm(t.fim)}">${label}</div>
+          <div class="bar ${st}${catCls}" data-id="${t.id}" style="left:${x}px;width:${w}px" title="${esc(t.titulo)} — ${dm(t.ini)} a ${dm(t.fim)}${st==='concluido'?' (concluída)':''}">${st==='concluido'?'<span class="cico">✓</span>':''}${label}</div>
           ${dots}
           <div class="cap ini" style="left:${x-2}px"></div>
           <div class="cap fim" style="left:${x+w-4}px;background:${st==='atrasado'?'var(--red)':st==='concluido'?'var(--neon)':'#8A8A8A'}"></div>
@@ -526,6 +554,7 @@ function openDemanda(id,preset={}){
   $('#dPai').value=t?.pai||preset.pai||'';
   $('#dOrc').checked=!!t?.orcamento; $('#dOrcVal').value=t?.orcamentoValor||'';
   $('#dOrcWrap').style.display=$('#dOrc').checked?'block':'none';
+  $('#dRevisao').checked=!!t?.revisao;
   $('#dGrav').checked=(t?.cat==='gravacao');
   $('#dPost').checked=(t?.cat==='postagem');
   $('#dFreq').value=t?.freq||'unica';
@@ -578,6 +607,7 @@ $('#dSave').onclick=async()=>{
   const data={titulo,desc:$('#dDesc').value.trim(),frente:$('#dFrente').value,node:$('#dNode').value,
     resp:$('#dResp').value,prioridade:$('#dPri').value,ini:$('#dIni').value,fim:$('#dFim').value,
     status:$('#dStatus').value,pai:$('#dPai').value,orcamento:$('#dOrc').checked,orcamentoValor:+$('#dOrcVal').value||0,
+    revisao:$('#dRevisao').checked,
     cat:$('#dGrav').checked?'gravacao':($('#dPost').checked?'postagem':''),
     freq:($('#dGrav').checked||$('#dPost').checked)?$('#dFreq').value:'',
     rede:$('#dPost').checked?dRede:''};

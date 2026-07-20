@@ -32,6 +32,11 @@
       <h1>Painel de execução</h1>
       <p class="sub">Onde a estratégia encosta na realidade. Cada demanda nasce de uma etapa do mapa — o que não estiver ligado a uma etapa é ruído.</p>
       <div class="kpis" id="kpis"></div>
+      <div class="card" id="revisaoCard" style="margin-bottom:20px;display:none;border-color:#7a5a00;background:#231d05">
+        <h2 style="color:var(--amber);display:flex;align-items:center;gap:8px">⚑ Precisa de revisão <span id="revisaoCount" style="font-family:var(--body);font-weight:400;font-size:12px;color:var(--mute)"></span></h2>
+        <p class="empty" style="padding:0 0 12px;font-size:12px">Pendências sem prazo ou sem definição, reunidas para você tratar com o time.</p>
+        <div id="revisaoList"></div>
+      </div>
       <div class="cols2">
         <div class="card"><h2>Progresso por frente</h2><div id="frentesProg"></div></div>
         <div>
@@ -50,6 +55,7 @@
         <select class="field" id="fResp"></select>
         <select class="field" id="fPri"><option value="">Toda prioridade</option><option>Alta</option><option>Média</option><option>Baixa</option></select>
         <label class="check" style="padding:0 6px"><input type="checkbox" id="fLate"> só atrasadas</label>
+        <label class="check" style="padding:0 6px"><input type="checkbox" id="fRev"> ⚑ só revisão</label>
         <div class="spacer"></div>
         <div class="seg" id="viewSeg"><button data-v="kanban" class="on">Kanban</button><button data-v="lista">Lista</button></div>
       </div>
@@ -219,6 +225,7 @@
           <p class="empty" id="dFreqHint" style="padding:6px 0 0;font-size:11px"></p>
         </div>
       </div>
+      <label class="check"><input type="checkbox" id="dRevisao"> ⚑ Precisa de revisão <span style="color:var(--mute-2);font-weight:400;font-size:11px;margin-left:4px">(pendência a tratar com o time)</span></label>
       <label class="check"><input type="checkbox" id="dOrc"> Precisa de orçamento</label>
       <div class="fg" id="dOrcWrap" style="display:none"><label>Valor estimado (R$)</label><input type="number" class="inp" id="dOrcVal" min="0" step="100" placeholder="0"></div>
     </div>

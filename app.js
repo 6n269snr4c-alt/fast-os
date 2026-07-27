@@ -416,6 +416,8 @@ function contentEvents(){
 }
 const MES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const WD3=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+// cabeçalho do grid: a semana começa na SEGUNDA (mesma base do monday())
+const WD3_HEAD=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
 function evIcon(e){
   if(e.cat==='gravacao') return '<span class="cico2">🎬</span>';
   return `<span class="cico2">${e.t.rede?redeIcon(e.t.rede,12):'📤'}</span>`;
@@ -461,7 +463,7 @@ function renderCalGrid(evs, byDay){
   // agrupa por mês (usa o mês da quinta-feira de cada semana para rótulo estável)
   let html='';
   let cursor=first, curMonthKey='';
-  const headRow=`<div class="calgrid">${WD3.map(w=>`<div class="cwh">${w}</div>`).join('')}</div>`;
+  const headRow=`<div class="calgrid">${WD3_HEAD.map(w=>`<div class="cwh">${w}</div>`).join('')}</div>`;
   let grid='';
   for(let w=0; w<weeks; w++){
     for(let dd=0; dd<7; dd++){
